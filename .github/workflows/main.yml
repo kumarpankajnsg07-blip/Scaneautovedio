@@ -1,0 +1,50 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract project ZIP
+        run: |
+          mkdir build-src
+          unzip -q SceneAutoVideo_Veo_v0.2_mobile_build.zip -d build-src
+
+      - name: Find Android project
+        run: |
+          GRADLEW=$(find build-src -name gradlew -type f | head -n 1)
+          if [ -z "$GRADLEW" ]; then
+            echo "gradlew not found"
+            find build-src -maxdepth 3 -type f | head -100
+            exit 1
+          fi
+          echo "PROJECT_DIR=$(dirname "$GRADLEW")" >> "$GITHUB_ENV"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Make Gradle executable
+        run: chmod +x "$PROJECT_DIR/gradlew"
+
+      - name: Build Debug APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SceneAutoVideo-APK
+          path: |
+            **/build/outputs/apk/**/*.apk
